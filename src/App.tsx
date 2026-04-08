@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import Landing from './pages/Landing';
 import Assessment from './pages/Assessment';
 import Dashboard from './pages/Dashboard';
@@ -9,7 +9,7 @@ import './index.css';
 
 function App() {
   return (
-    <Router basename={import.meta.env.BASE_URL}>
+    <Router>
       <div className="app-container">
         <Routes>
           <Route path="/" element={<Landing />} />
