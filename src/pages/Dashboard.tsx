@@ -1,48 +1,75 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { generateDashboardData, type DashboardData } from '../lib/recommendation';
-import { getGamificationState, addXP, type GamificationState } from '../lib/gamification';
-import { Sparkles, Briefcase, BarChart, Flag, CheckCircle, AlertTriangle, Star, Zap, Brain, ShieldCheck } from 'lucide-react';
+import { getGamificationState, type GamificationState } from '../lib/gamification';
+import { MockDB, type UserProfile, type UserCareerState } from '../lib/db';
+import Roadmap from '../components/Roadmap';
+import { Sparkles, Briefcase, BarChart, Flag, CheckCircle, AlertTriangle, Star, Zap, Brain, ShieldCheck, LogOut, RefreshCw } from 'lucide-react';
 import './Dashboard.css';
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [state, setState] = useState<UserCareerState | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
   const [gamification, setGamification] = useState<GamificationState | null>(null);
-  const [aptitude, setAptitude] = useState<{logic: number, math: number, cs: number, problem_solving: number} | null>(null);
 
   useEffect(() => {
-    const savedData = localStorage.getItem('careerAssessment');
-    if (!savedData) {
-      navigate('/assessment');
-      return;
-    }
+    const loadData = async () => {
+      const currentUser = MockDB.getCurrentUser();
+      if (!currentUser) {
+        navigate('/auth');
+        return;
+      }
+      setUser(currentUser);
 
-    try {
-      const parsed = JSON.parse(savedData);
-      const dashboardInfo = generateDashboardData(parsed);
-      setData(dashboardInfo);
-      setAptitude(parsed.aptitudeScores || { logic: 0, math: 0, cs: 0, problem_solving: 0 });
-      
-      const gState = addXP(20);
-      setGamification(gState);
-    } catch (e) {
-      navigate('/assessment');
-    }
-    
-    const handleXPUpdate = () => {
-      setGamification(getGamificationState(parseInt(localStorage.getItem('userXP') || '0', 10)));
+      const userState = await MockDB.getUserState(currentUser.id);
+      if (!userState || userState.assessmentsCompleted === 0) {
+        navigate('/assessment');
+        return;
+      }
+      setState(userState);
+
+      // We pass the user state as mapping to formData
+      const pData = generateDashboardData({
+        skills: userState.knownSkills,
+        aptitudeScores: userState.aptitude
+      });
+      setData(pData);
+      setGamification(getGamificationState(userState.xp));
     };
-    
-    window.addEventListener('xp_updated', handleXPUpdate);
-    return () => window.removeEventListener('xp_updated', handleXPUpdate);
+
+    loadData();
   }, [navigate]);
 
-  if (!data || !aptitude) return null;
+  const handleLogout = async () => {
+    await MockDB.logoutUser();
+    navigate('/auth');
+  };
+
+  const handleToggleRoadmapStep = async (stepId: number) => {
+    if (!state || !user) return;
+    const newProgress = { ...state.roadmapProgress };
+    if (newProgress[stepId]) {
+      delete newProgress[stepId];
+    } else {
+      newProgress[stepId] = true;
+    }
+    
+    // Optimistic UI update
+    setState({ ...state, roadmapProgress: newProgress });
+    await MockDB.updateUserState(user.id, { roadmapProgress: newProgress });
+  };
+
+  if (!user || !state || !data || !gamification) {
+    return <div className="loading-screen">Loading Intelligence Engine...</div>;
+  }
+
+  const { aptitude } = state;
 
   return (
     <div className="dashboard-page animate-fade-in">
-      <nav className="navbar">
+      <nav className="navbar container">
         <div className="logo cursor-pointer" onClick={() => navigate('/')}>
           <Sparkles className="icon-accent" size={24} />
           <span>GuidanceAI Dashboard</span>
@@ -50,21 +77,25 @@ export default function Dashboard() {
         <div className="nav-links">
           <button className="btn-secondary" onClick={() => navigate('/explorer')}>Explorer</button>
           <button className="btn-secondary" onClick={() => navigate('/analyzer')}>Analyzer</button>
-          <button className="btn-secondary" onClick={() => {
-            localStorage.removeItem('careerAssessment');
-            navigate('/assessment');
-          }}>Retake</button>
+          <button className="btn-secondary logout-btn" onClick={handleLogout}><LogOut size={16}/> Logout</button>
         </div>
       </nav>
 
-      <header className="dashboard-header animate-fade-in delay-1">
-        <h1>Your Career Intelligence Report</h1>
-        <p>Based on your unique profile, here is your personalized path forward.</p>
-      </header>
+      <div className="container">
+        <header className="dashboard-header animate-fade-in delay-1">
+          <div className="header-flex">
+            <div>
+              <h1>Welcome back, <span className="text-gradient">{user.name}</span></h1>
+              <p>Your intelligent career pathway based on your unique profile.</p>
+            </div>
+            <button className="btn-primary flex items-center gap-2" onClick={() => navigate('/assessment')}>
+              <RefreshCw size={16} /> Update Skills & Re-analyze
+            </button>
+          </div>
+        </header>
 
-      <main className="dashboard-grid">
-        {/* Gamification Premium Card */}
-        {gamification && (
+        <main className="dashboard-grid">
+          {/* Main User Overview Panel */}
           <section className="gamification-card glass-panel animate-fade-in delay-2">
             <div className="gamification-header">
               <div className="gamification-role">
@@ -72,13 +103,13 @@ export default function Dashboard() {
                   <Star size={24} />
                 </div>
                 <div>
-                  <div className="role-label">Primary Path</div>
+                  <div className="role-label">Highest Match Pathway</div>
                   <div className="role-title">{data.careers[0].title}</div>
                 </div>
               </div>
               <div className="gamification-stats">
                 <div className="level-badge">
-                  <span className="level-name text-gradient">Lvl: {gamification.level}</span>
+                  <span className="level-name text-gradient">Level {gamification.level}</span>
                 </div>
                 <div className="xp-badge">
                   <Zap size={16} color="#fbbf24" style={{display: 'inline', verticalAlign: 'middle', marginRight: '4px'}} /> 
@@ -88,7 +119,7 @@ export default function Dashboard() {
             </div>
             
             <div className="badges-container" style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-               <span className="achievement-badge"><ShieldCheck size={14} color="#10b981"/> Aptitude Explorer</span>
+               <span className="achievement-badge"><ShieldCheck size={14} color="#10b981"/> Active Learner</span>
                {gamification.xp >= 100 && <span className="achievement-badge"><ShieldCheck size={14} color="#3b82f6"/> Skill Builder</span>}
                {gamification.xp >= 250 && <span className="achievement-badge"><ShieldCheck size={14} color="#8b5cf6"/> Career Analyst</span>}
             </div>
@@ -103,99 +134,96 @@ export default function Dashboard() {
               </div>
             </div>
           </section>
-        )}
 
-        {/* Aptitude Result Container */}
-        <section className="section-container animate-fade-in delay-2">
-           <h2 className="section-title">
-            <Brain className="section-icon" /> Aptitude Profile
-          </h2>
-          <div className="aptitude-panel glass-panel">
-            <div className="aptitude-grid">
-               <AptitudeBar label="Logical Reasoning" score={aptitude.logic} color="#8b5cf6" />
-               <AptitudeBar label="Mathematics" score={aptitude.math} color="#3b82f6" />
-               <AptitudeBar label="Computer Science" score={aptitude.cs} color="#10b981" />
-               <AptitudeBar label="Problem Solving" score={aptitude.problem_solving} color="#f59e0b" />
+          {/* Aptitude Panel */}
+          <section className="section-container animate-fade-in delay-2">
+             <h2 className="section-title">
+              <Brain className="section-icon" /> Cognitive Profile
+            </h2>
+            <div className="aptitude-panel glass-panel">
+              <div className="aptitude-grid">
+                 <AptitudeBar label="Logical Reasoning" score={aptitude.logic} color="#8b5cf6" />
+                 <AptitudeBar label="Mathematics" score={aptitude.math} color="#3b82f6" />
+                 <AptitudeBar label="Computer Science" score={aptitude.cs} color="#10b981" />
+                 <AptitudeBar label="Problem Solving" score={aptitude.problem_solving} color="#f59e0b" />
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        {/* Top 3 Careers */}
-        <section className="section-container animate-fade-in delay-2">
-          <h2 className="section-title">
-            <Briefcase className="section-icon" /> Top Career Matches
-          </h2>
-          <div className="careers-grid">
-            {data.careers.map((career, idx) => (
-              <div key={idx} className="career-card glass-panel">
-                <div className="career-header">
-                  <span className="career-title">{career.title}</span>
-                  <span className="match-badge">{career.matchPercentage}% Match</span>
-                </div>
-                <p className="career-desc">{career.description}</p>
-                {career.relatedCareers && career.relatedCareers.length > 0 && (
-                  <div className="related-careers">
-                    <strong>Related:</strong>
-                    <div className="related-tags">
-                      {career.relatedCareers.map(rc => <span key={rc} className="related-tag">{rc}</span>)}
-                    </div>
+          {/* Career Recommendations row */}
+          <section className="section-container full-width animate-fade-in delay-2">
+            <h2 className="section-title">
+              <Briefcase className="section-icon" /> AI-Recommended Roles
+            </h2>
+            <div className="careers-grid">
+              {data.careers.map((career, idx) => (
+                <div key={idx} className="career-card glass-panel" style={idx === 0 ? { border: '1px solid var(--border-focus)', transform: 'scale(1.02)' } : {}}>
+                  <div className="career-header">
+                    <span className="career-title">{career.title}</span>
+                    <span className="match-badge" style={idx === 0 ? { background: 'rgba(16, 185, 129, 0.2)', color: '#34d399' } : {}}>{career.matchPercentage}% Match</span>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Skill Gap Analyzer */}
-        <section className="section-container animate-fade-in delay-3">
-          <h2 className="section-title">
-            <BarChart className="section-icon" /> Skill Gap Analyzer
-          </h2>
-          <div className="skills-analyzer glass-panel">
-            <div className="skill-list" style={{marginBottom: '1rem'}}>
-              <h4><CheckCircle size={18} color="#10b981" /> Known Skills</h4>
-              <div className="skill-tags">
-                {data.skillGap.known.map(s => <span key={s} className="skill-tag known">{s}</span>)}
-              </div>
+                  <p className="career-desc">{career.description}</p>
+                  {career.relatedCareers && career.relatedCareers.length > 0 && (
+                    <div className="related-careers">
+                      <strong>Explore Alternates:</strong>
+                      <div className="related-tags">
+                        {career.relatedCareers.map(rc => <span key={rc} className="related-tag">{rc}</span>)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
-            
-            <div className="skill-list" style={{marginBottom: '1.5rem'}}>
-              <h4><AlertTriangle size={18} color="#ef4444" /> Missing Skills</h4>
-              <div className="skill-tags">
-                {data.skillGap.missing.map(s => <span key={s} className="skill-tag missing">{s}</span>)}
-              </div>
-            </div>
+          </section>
 
-            <div className="progress-wrapper">
-              <div className="progress-header">
-                <span>Overall Readiness: {data.skillGap.progress}%</span>
-                <span>Next Priority: <span className="priority-highlight">{data.skillGap.nextPriority}</span></span>
-              </div>
-              <div className="progress-bar-container">
-                <div className="progress-fill" style={{ width: `${data.skillGap.progress}%` }}></div>
-              </div>
-            </div>
-          </div>
-        </section>
+          {/* Skill Gap and Roadmap row */}
+          <div className="dashboard-two-col animate-fade-in delay-3">
+            <section className="section-container">
+              <h2 className="section-title">
+                <BarChart className="section-icon" /> Technical Skill Engine
+              </h2>
+              <div className="skills-analyzer glass-panel">
+                <div className="skill-list" style={{marginBottom: '1rem'}}>
+                  <h4><CheckCircle size={18} color="#10b981" /> Acquired Skills</h4>
+                  <div className="skill-tags">
+                    {data.skillGap.known.map(s => <span key={s} className="skill-tag known">{s}</span>)}
+                  </div>
+                </div>
+                
+                <div className="skill-list" style={{marginBottom: '1.5rem'}}>
+                  <h4><AlertTriangle size={18} color="#ef4444" /> Required Skills</h4>
+                  <div className="skill-tags">
+                    {data.skillGap.missing.map(s => <span key={s} className="skill-tag missing">{s}</span>)}
+                  </div>
+                </div>
 
-        {/* Smart Roadmap */}
-        <section className="section-container animate-fade-in delay-3">
-          <h2 className="section-title">
-            <Flag className="section-icon" /> Your Smart Roadmap
-          </h2>
-          <div className="roadmap-container glass-panel">
-            {data.roadmap.map((step, idx) => (
-              <div key={idx} className="roadmap-step">
-                <div className="step-marker">{step.step}</div>
-                <div className="step-content">
-                  <h3>{step.title}</h3>
-                  <p>{step.description}</p>
+                <div className="progress-wrapper" style={{ marginTop: 'auto', paddingTop: '1.5rem', borderTop: '1px solid var(--border-subtle)' }}>
+                  <div className="progress-header">
+                    <span>Role Readiness</span>
+                    <span><span className="priority-highlight">Priority: {data.skillGap.nextPriority}</span></span>
+                  </div>
+                  <div className="progress-bar-container">
+                    <div className="progress-fill" style={{ width: `${data.skillGap.progress}%`, background: 'var(--gradient-btn)' }}></div>
+                  </div>
                 </div>
               </div>
-            ))}
+            </section>
+
+            <section className="section-container">
+              <h2 className="section-title">
+                <Flag className="section-icon" /> Intelligent Learning Roadmap
+              </h2>
+              <div className="glass-panel" style={{ padding: '0 1.5rem' }}>
+                <Roadmap 
+                  roadmap={data.roadmap} 
+                  progress={state.roadmapProgress} 
+                  onToggleStep={handleToggleRoadmapStep} 
+                />
+              </div>
+            </section>
           </div>
-        </section>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
@@ -205,7 +233,7 @@ function AptitudeBar({ label, score, color }: { label: string, score: number, co
     <div className="aptitude-bar-wrapper">
       <div className="aptitude-bar-header">
         <span>{label}</span>
-        <span>{score}%</span>
+        <span>{score < 10 ? 'Evaluating' : `${score}%`}</span>
       </div>
       <div className="progress-bar-container" style={{ height: '6px', backgroundColor: 'rgba(255,255,255,0.05)' }}>
          <div className="progress-fill" style={{ width: `${score}%`, backgroundColor: color }}></div>

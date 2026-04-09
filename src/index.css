@@ -71,6 +71,10 @@ button {
   padding: 0.6rem 1.2rem;
   border-radius: 8px;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   transition: all 0.2s ease;
   box-shadow: 0 4px 15px rgba(109, 40, 217, 0.3);
 }
@@ -87,6 +91,10 @@ button {
   padding: 0.6rem 1.2rem;
   border-radius: 8px;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   border: 1px solid var(--border-subtle);
   transition: all 0.2s ease;
 }
@@ -142,6 +150,7 @@ button {
   font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: -0.5px;
+  cursor: pointer;
 }
 
 .icon-accent {

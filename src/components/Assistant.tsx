@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Bot, X, Send } from 'lucide-react';
 import { addXP } from '../lib/gamification';
+import { MockDB } from '../lib/db';
 import './Assistant.css';
 
 type MessageInfo = {
@@ -179,59 +180,64 @@ export default function Assistant() {
     }
   });
 
-  const generateAIResponse = (userText: string) => {
+  const generateAIResponse = async (userText: string) => {
     const text = userText.toLowerCase();
 
-    // 1. Context Engine Read
-    let contextData = null;
-    let strengths = [];
-    let weaknesses = [];
-    let strongSubjects = [];
+    // 1. Context Engine Read from MockDB
+    let state = null;
+    let user = MockDB.getCurrentUser();
 
-    try {
-      const savedContent = localStorage.getItem('careerAssessment');
-      if (savedContent) {
-        contextData = JSON.parse(savedContent);
-        strongSubjects = contextData.strongSubjects || [];
-        if (contextData.aptitudeScores) {
-          const { logic, math, cs, problem_solving } = contextData.aptitudeScores;
-          if (logic >= 70) strengths.push('logical reasoning'); else if (logic < 50) weaknesses.push('logic');
-          if (math >= 70) strengths.push('mathematics'); else if (math < 50) weaknesses.push('mathematics');
-          if (cs >= 70) strengths.push('computer science'); else if (cs < 50) weaknesses.push('computer science');
-          if (problem_solving >= 70) strengths.push('problem solving'); else if (problem_solving < 50) weaknesses.push('problem solving');
-        }
+    let strengths: string[] = [];
+    let weaknesses: string[] = [];
+
+    if (user) {
+      state = await MockDB.getUserState(user.id);
+      if (state) {
+        // Generate current matching info
+        // We will mock generateDashboardData logic lightly for context or we can import it
+        // We already imported generateDashboardData at the top! Wait, I need to add it to imports.
+        
+        const { logic, math, cs, problem_solving } = state.aptitude;
+        if (logic >= 70) strengths.push('logical reasoning'); else if (logic < 50) weaknesses.push('logic');
+        if (math >= 70) strengths.push('mathematics'); else if (math < 50) weaknesses.push('mathematics');
+        if (cs >= 70) strengths.push('computer science'); else if (cs < 50) weaknesses.push('computer science');
+        if (problem_solving >= 70) strengths.push('problem solving'); else if (problem_solving < 50) weaknesses.push('problem solving');
       }
-    } catch(e) {}
+    }
 
     // 2. Dynamic Rules based on Context
-    if (contextData) {
+    if (state && user) {
+      // Dynamic Skill Context check
+      const knownSkillsLower = state.knownSkills.map(s => s.toLowerCase());
+      
+      if (knownSkillsLower.includes('python') && text.includes('python')) {
+         return "Since Python is now added to your profile, Data Science, AI Engineering, and Backend pathways become significantly stronger for you.";
+      }
+      
+      if (knownSkillsLower.includes('react') && text.includes('react')) {
+         return "With React in your skillset, Frontend and Full Stack Developer roles are prime targets. I suggest focusing on building a portfolio project next.";
+      }
+
       if (text.includes('improve') || text.includes('weak') || text.includes('gap')) {
-        if (weaknesses.includes('mathematics') && strengths.includes('logical reasoning')) {
-           return "Since your analytical profile is strong but mathematics is moderate, strengthening statistics will improve your targeted career readiness.";
-        }
-        if (weaknesses.length > 0) {
-           return `I noticed your score in ${weaknesses[0]} was moderate. Focusing some time there will yield the biggest improvement.`;
-        }
+         if (weaknesses.length > 0) {
+            return `I noticed your aptitude score in ${weaknesses[0]} was moderate during the assessment. Focusing some time on fundamental exercises there will yield the biggest improvement.`;
+         } else {
+            return "Your cognitive profile is remarkably strong across the board! To improve further, focus purely on acquiring practical technical skills rather than theory.";
+         }
       }
 
       if (text.includes('math')) {
-        if (strongSubjects.includes('Mathematics') || strengths.includes('mathematics')) {
-          return "Since your math is strong, I highly recommend AI, Data Science, or Quantitative fields. They will leverage your natural strength beautifully.";
+        if (strengths.includes('mathematics')) {
+          return `Since your math score was exceptional (${state.aptitude.math}%), I highly recommend Data Science or Cryptography fields. They will leverage your natural strength beautifully.`;
         } else {
           return "Since math isn't your primary strength, a practical project-first path like Frontend Development or Product Management is perfectly suitable.";
         }
       }
 
-      if (text.includes('software') || text.includes('cloud') || text.includes('cs')) {
-        if (strongSubjects.includes('Computer Science') || strengths.includes('computer science')) {
-          return "Your Computer Science fundamentals are solid. You should aim for Software Development, Cloud Architecture, or DevOps.";
-        }
-      }
-
-      if (text.includes('communication') || text.includes('product')) {
-        if (strongSubjects.includes('Communication')) {
-          return "Your communication skills are highly valuable. Consider Product Management, Consulting, or Business Analytics where this is a core requirement.";
-        }
+      if (text.includes('roadmap') || text.includes('plan')) {
+         if (state.knownSkills.length > 0) {
+            return `Based on your ${state.knownSkills.length} acquired skills, your Dashboard roadmap shows your next step. Have you started your latest step yet?`;
+         }
       }
     }
 
@@ -248,7 +254,7 @@ export default function Assistant() {
     return reply;
   };
 
-  const handleSend = (providedText?: string) => {
+  const handleSend = async (providedText?: string) => {
     const textToSend = providedText || input;
     if (!textToSend.trim()) return;
 
@@ -263,9 +269,13 @@ export default function Assistant() {
     
     setInput('');
 
-    // Exact 1 second mandatory delay
+    // Fetch asynchronously but ensure 1 second mandatory visual delay matches requirements
+    const startTime = Date.now();
+    const responseText = await generateAIResponse(textToSend);
+    const elapsed = Date.now() - startTime;
+    const remainingDelay = Math.max(0, 1000 - elapsed);
+
     setTimeout(() => {
-      const responseText = generateAIResponse(textToSend);
       setMessages(prev => 
         prev.map(msg => 
           msg.id === analyzingId 
@@ -273,7 +283,7 @@ export default function Assistant() {
             : msg
         )
       );
-    }, 1000);
+    }, remainingDelay > 0 ? remainingDelay : 0);
   };
 
   const markTypingComplete = (id: string) => {

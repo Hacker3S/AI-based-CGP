@@ -1,0 +1,158 @@
+.roadmap-container {
+  padding: 1rem 0;
+}
+
+.roadmap-timeline {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.roadmap-timeline::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 20px;
+  width: 2px;
+  background: var(--border-subtle);
+  z-index: 0;
+}
+
+.roadmap-node {
+  display: flex;
+  gap: 1.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+.node-marker {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  background: var(--bg-main);
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.node-marker:hover {
+  transform: scale(1.1);
+}
+
+.marker-circle {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-light);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-main);
+  background: var(--bg-card);
+}
+
+.roadmap-node.completed .marker-circle {
+  background: #10b981;
+  border-color: #10b981;
+}
+
+.node-content {
+  flex: 1;
+  padding: 1.5rem;
+  text-align: left;
+  border-left: 4px solid transparent;
+}
+
+.roadmap-node.next-action .node-content {
+  border-left-color: var(--accent-light);
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.15);
+}
+
+.roadmap-node.completed .node-content {
+  border-left-color: #10b981;
+  opacity: 0.8;
+}
+
+.node-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+.node-header h3 {
+  font-size: 1.25rem;
+  color: var(--text-inverse);
+  margin: 0;
+}
+
+.next-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(139, 92, 246, 0.2);
+  color: #c4b5fd;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.node-content p {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  margin-bottom: 1rem;
+}
+
+.course-recommendation {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  margin-bottom: 1rem;
+}
+
+.course-recommendation strong {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-main);
+  margin-bottom: 0.5rem;
+}
+
+.course-recommendation ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.course-recommendation li {
+  font-size: 0.9rem;
+  color: var(--accent-light);
+  display: flex;
+  align-items: center;
+}
+
+.course-recommendation li::before {
+  content: '▸';
+  margin-right: 0.5rem;
+}
+
+.completed-btn {
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.completed-btn:hover {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: #059669;
+}

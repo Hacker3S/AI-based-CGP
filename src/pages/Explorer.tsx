@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Sparkles, Database, Shield, Cloud, PenTool, Code, Server, Briefcase } from 'lucide-react';
 import { CAREER_DATASET } from '../lib/dataset';
 import './Explorer.css';
@@ -14,18 +14,17 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 };
 
 export default function Explorer() {
-  const navigate = useNavigate();
 
   return (
     <div className="explorer-page animate-fade-in">
       <nav className="navbar">
-        <div className="logo cursor-pointer" onClick={() => navigate('/')}>
+        <Link to="/" className="logo cursor-pointer">
           <Sparkles className="icon-accent" size={24} />
           <span>GuidanceAI Explorer</span>
-        </div>
+        </Link>
         <div className="nav-links">
-          <button className="btn-secondary" onClick={() => navigate('/analyzer')}>Resume Analyzer</button>
-          <button className="btn-primary" onClick={() => navigate('/dashboard')}>Dashboard</button>
+          <Link to="/analyzer" className="btn-secondary">Resume Analyzer</Link>
+          <Link to="/dashboard" className="btn-primary">Dashboard</Link>
         </div>
       </nav>
 

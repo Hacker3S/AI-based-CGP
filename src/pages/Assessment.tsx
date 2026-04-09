@@ -1,27 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, GraduationCap, Briefcase, Heart, CheckCircle, ArrowRight, BookOpen, BrainCircuit, Rocket, Activity, Code, Target } from 'lucide-react';
-import { addXP } from '../lib/gamification';
+import { Briefcase, CheckCircle, ArrowRight, BookOpen, BrainCircuit, Rocket, Activity, Code, Target, Sparkles } from 'lucide-react';
+import { MockDB, type UserProfile, type UserCareerState } from '../lib/db';
 import { APTITUDE_QUESTIONS } from '../lib/dataset';
 import './Assessment.css';
 
 const INTERESTS = ['Programming', 'Design', 'Data Science', 'Marketing', 'Writing', 'Finance', 'Engineering'];
-const SKILLS = ['Python', 'JavaScript', 'Communication', 'Problem Solving', 'Leadership', 'Mathematics', 'UI/UX'];
+const SKILLS = ['Python', 'JavaScript', 'Communication', 'Problem Solving', 'Leadership', 'Mathematics', 'UI/UX', 'SQL', 'Docker', 'AWS', 'TensorFlow', 'React', 'Linux'];
 const STRONG_SUBJECTS = ['Mathematics', 'Computer Science', 'Logical Reasoning', 'Communication', 'Creativity', 'Problem Solving'];
 
 export default function Assessment() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1); // 1: Profile, 2: Aptitude Test, 3: Completed
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [state, setState] = useState<UserCareerState | null>(null);
+
+  const [step, setStep] = useState(1); // 1: Profile/Skills update, 2: Aptitude Test, 3: Completed
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Step 1 State
-  const [formData, setFormData] = useState({
-    name: '',
-    education: '',
-    domain: '',
-    strongSubjects: [] as string[],
-    interests: [] as string[],
-    skills: [] as string[]
-  });
+  const [strongSubjects, setStrongSubjects] = useState<string[]>([]);
+  const [interests, setInterests] = useState<string[]>([]);
+  const [skills, setSkills] = useState<string[]>([]);
 
   // Step 2 State
   const [currentQIndex, setCurrentQIndex] = useState(0);
@@ -29,22 +28,52 @@ export default function Assessment() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
+  const [gainedXp, setGainedXp] = useState(0);
 
-  const toggleChip = (category: 'interests' | 'skills' | 'strongSubjects', item: string) => {
-    setFormData(prev => {
-      const current = prev[category];
-      return {
-        ...prev,
-        [category]: current.includes(item)
-          ? current.filter(i => i !== item)
-          : [...current, item]
-      };
-    });
+  useEffect(() => {
+    const fetchUser = async () => {
+      const u = MockDB.getCurrentUser();
+      if (!u) {
+        navigate('/auth');
+        return;
+      }
+      setUser(u);
+      const s = await MockDB.getUserState(u.id);
+      if (s) {
+        setState(s);
+        if (s.assessmentsCompleted > 0) {
+          setIsUpdating(true);
+          setSkills(s.knownSkills || []);
+        }
+      }
+    };
+    fetchUser();
+  }, [navigate]);
+
+  const toggleChip = (category: string, item: string) => {
+    if (category === 'strongSubjects') {
+      setStrongSubjects(prev => prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item]);
+    } else if (category === 'interests') {
+      setInterests(prev => prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item]);
+    } else if (category === 'skills') {
+      setSkills(prev => prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item]);
+    }
   };
 
-  const handleProfileSubmit = (e: React.FormEvent) => {
+  const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setStep(2); // Move to Aptitude test
+    if (isUpdating) {
+      // Re-analysis path: Just update skills and skip aptitude if they already did it
+      if (user && state) {
+        await MockDB.updateUserState(user.id, {
+          knownSkills: skills,
+          assessmentsCompleted: state.assessmentsCompleted + 1
+        });
+        setStep(3); // Go directly to completion
+      }
+    } else {
+      setStep(2); // New user: proceed to aptitude test
+    }
   };
 
   const handleAnswerSubmit = () => {
@@ -57,7 +86,7 @@ export default function Assessment() {
     setShowFeedback(true);
 
     if (correct) {
-      addXP(10); // Reward XP per correct answer
+      setGainedXp(prev => prev + 10);
       setScores(prev => ({
         ...prev,
         [q.category]: prev[q.category as keyof typeof prev] + 1
@@ -72,133 +101,97 @@ export default function Assessment() {
       } else {
         finishAssessment();
       }
-    }, 1500); // 1.5s delay for feedback
+    }, 1500); 
   };
 
-  const finishAssessment = () => {
-    // Calculate final aptitude percentages based on max possible score per category (2 questions each in dataset)
-    const maxPerCat = 2;
-    const finalScores = {
+  const finishAssessment = async () => {
+    if (!user || !state) return;
+    
+    const maxPerCat = 2; // Assuming 2 questions per category in the test dataset
+    const aptitudeScores = {
       logic: Math.round((scores.logic / maxPerCat) * 100),
       math: Math.round((scores.math / maxPerCat) * 100),
       cs: Math.round((scores.cs / maxPerCat) * 100),
       problem_solving: Math.round((scores.problem_solving / maxPerCat) * 100)
     };
 
-    const finalData = { ...formData, aptitudeScores: finalScores };
-    localStorage.setItem('careerAssessment', JSON.stringify(finalData));
+    const newXp = state.xp + gainedXp + 100; // 100 completion bonus
+
+    await MockDB.updateUserState(user.id, {
+      knownSkills: skills,
+      aptitude: aptitudeScores,
+      xp: newXp,
+      assessmentsCompleted: state.assessmentsCompleted + 1
+    });
     
-    addXP(100); // Completion bonus
     setStep(3);
   };
 
+  if (!user || !state) return null;
+
   return (
     <div className="assessment-page">
+      <nav className="navbar container">
+        <div className="logo cursor-pointer" onClick={() => navigate('/')}>
+          <Sparkles className="icon-accent" size={24} />
+          <span>GuidanceAI</span>
+        </div>
+      </nav>
+
       <div className={`assessment-panel glass-panel animate-fade-in ${step === 2 ? 'test-mode' : ''}`}>
         
         {step === 1 && (
           <>
             <div className="assessment-header">
-              <h1>Career Profile Setup</h1>
-              <p>Tell us about yourself before we jump into the gamified aptitude explorer.</p>
+              <h1>{isUpdating ? 'Update Skills & Re-analyze' : 'Career Profile Setup'}</h1>
+              <p>{isUpdating ? 'Acquired new skills? Update them here to receive refined career recommendations.' : 'Select your initial strengths to guide the intelligent assessment.'}</p>
             </div>
 
             <form onSubmit={handleProfileSubmit}>
-              <div className="form-group animate-fade-in delay-1">
-                <label><User size={18} className="icon-label" /> Full Name</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Enter your name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                />
-              </div>
+              {!isUpdating && (
+                <>
+                  <div className="form-group animate-fade-in delay-1">
+                    <label><BookOpen size={18} className="icon-label" /> Strong Subjects</label>
+                    <div className="chips-container">
+                      {STRONG_SUBJECTS.map(sub => (
+                        <button type="button" key={sub} className={`chip ${strongSubjects.includes(sub) ? 'active' : ''}`} onClick={() => toggleChip('strongSubjects', sub)}>
+                          {sub}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              <div className="form-group animate-fade-in delay-1">
-                <label><GraduationCap size={18} className="icon-label" /> Education Level</label>
-                <select
-                  className="form-select"
-                  value={formData.education}
-                  onChange={(e) => setFormData({ ...formData, education: e.target.value })}
-                  required
-                >
-                  <option value="" disabled>Select your highest education</option>
-                  <option value="high_school">High School</option>
-                  <option value="undergraduate">Undergraduate Degree</option>
-                  <option value="graduate">Graduate Degree</option>
-                  <option value="self_taught">Self-Taught</option>
-                </select>
-              </div>
-
-              <div className="form-group animate-fade-in delay-2">
-                <label><BookOpen size={18} className="icon-label" /> Strong Subjects</label>
-                <div className="chips-container">
-                  {STRONG_SUBJECTS.map(sub => (
-                    <button
-                      type="button"
-                      key={sub}
-                      className={`chip ${formData.strongSubjects.includes(sub) ? 'active' : ''}`}
-                      onClick={() => toggleChip('strongSubjects', sub)}
-                    >
-                      {sub}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="form-group animate-fade-in delay-2">
-                <label><Heart size={18} className="icon-label" /> Core Interests</label>
-                <div className="chips-container">
-                  {INTERESTS.map(interest => (
-                    <button
-                      type="button"
-                      key={interest}
-                      className={`chip ${formData.interests.includes(interest) ? 'active' : ''}`}
-                      onClick={() => toggleChip('interests', interest)}
-                    >
-                      {interest}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                  <div className="form-group animate-fade-in delay-2">
+                    <label><Target size={18} className="icon-label" /> Core Interests</label>
+                    <div className="chips-container">
+                      {INTERESTS.map(interest => (
+                        <button type="button" key={interest} className={`chip ${interests.includes(interest) ? 'active' : ''}`} onClick={() => toggleChip('interests', interest)}>
+                          {interest}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
 
               <div className="form-group animate-fade-in delay-3">
-                <label><Briefcase size={18} className="icon-label" /> Existing Skills</label>
+                <label><Briefcase size={18} className="icon-label" /> {isUpdating ? 'Your Current Skills' : 'Existing Skills'}</label>
                 <div className="chips-container">
                   {SKILLS.map(skill => (
-                    <button
-                      type="button"
-                      key={skill}
-                      className={`chip ${formData.skills.includes(skill) ? 'active' : ''}`}
-                      onClick={() => toggleChip('skills', skill)}
-                    >
+                    <button type="button" key={skill} className={`chip ${skills.includes(skill) ? 'active' : ''}`} onClick={() => toggleChip('skills', skill)}>
                       {skill}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div className="form-group animate-fade-in delay-3">
-                <label><Target size={18} className="icon-label"/> Preferred Domain</label>
-                <select
-                  className="form-select"
-                  value={formData.domain}
-                  onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
-                  required
-                >
-                  <option value="" disabled>Where do you see yourself?</option>
-                  <option value="tech">Technology & Software</option>
-                  <option value="business">Business & Management</option>
-                  <option value="creative">Design & Creative</option>
-                  <option value="science">Research & Science</option>
-                </select>
-              </div>
-
-              <div className="form-actions animate-fade-in delay-3">
-                <button type="button" className="btn-secondary" onClick={() => navigate('/')}>Cancel</button>
-                <button type="submit" className="btn-primary">Start Aptitude Engine <Rocket size={18} style={{ display: 'inline', verticalAlign: 'middle' }} /></button>
+              <div className="form-actions animate-fade-in delay-3" style={{ marginTop: '2rem'}}>
+                <button type="button" className="btn-secondary" onClick={() => navigate('/dashboard')}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary">
+                  {isUpdating ? 'Generate New Roadmap' : 'Start Gamified Assessment'} <Rocket size={18} style={{ display: 'inline', verticalAlign: 'middle' }} />
+                </button>
               </div>
             </form>
           </>
@@ -262,13 +255,19 @@ export default function Assessment() {
             <div className="success-icon animate-bounce">
               <CheckCircle size={64} />
             </div>
-            <div className="level-up-badge animate-scale-in">
-              <Rocket size={24} /> Aptitude Completed! +100 XP
-            </div>
+            {!isUpdating && (
+              <div className="level-up-badge animate-scale-in">
+                <Rocket size={24} /> Aptitude Completed! +100 XP
+              </div>
+            )}
             <h2>Analysis Complete!</h2>
-            <p className="text-muted">Your profile and strengths have been mapped. The Intelligence Engine is generating your roadmap.</p>
+            <p className="text-muted">
+              {isUpdating 
+                ? 'Your skills have been updated. The engine has recalculated your optimal paths.' 
+                : 'Your profile and strengths have been mapped. The Intelligence Engine is generating your roadmap.'}
+            </p>
             <button className="btn-primary dashboard-btn" style={{marginTop: '2rem'}} onClick={() => navigate('/dashboard')}>
-              View Career Dashboard
+              Go to Your Dashboard
             </button>
           </div>
         )}
