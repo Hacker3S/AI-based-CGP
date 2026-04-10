@@ -15,19 +15,19 @@ export default function Landing() {
   return (
     <div className="landing-page">
       <nav className="navbar container animate-fade-in" style={{ gap: '2rem' }}>
-        <Link to="/" className="logo" style={{ marginRight: 'auto' }}>
+        <div className="logo" style={{ marginRight: 'auto' }} onClick={() => navigate('/')}>
           <Sparkles className="icon-accent" size={24} />
           <span>GuidanceAI</span>
-        </Link>
+        </div>
         <div className="nav-links">
-          <Link to="/explorer" className="btn-secondary">Career Explorer</Link>
+          <button onClick={() => navigate('/explorer')} className="btn-secondary">Career Explorer</button>
           {isLoggedIn ? (
-            <Link to="/dashboard" className="btn-primary">Dashboard</Link>
+            <button onClick={() => navigate('/dashboard')} className="btn-primary">Dashboard</button>
           ) : (
-            <Link to="/auth" className="btn-secondary"><LogIn size={16} /> Login</Link>
+            <button onClick={() => navigate('/auth')} className="btn-secondary"><LogIn size={16} /> Login</button>
           )}
           {!isLoggedIn && (
-            <Link to="/auth" state={{ mode: 'signup' }} className="btn-primary">Get Started</Link>
+            <button onClick={() => navigate('/auth', { state: { mode: 'signup' } })} className="btn-primary">Get Started</button>
           )}
         </div>
       </nav>

@@ -141,6 +141,8 @@ button {
   align-items: center;
   padding-top: 1.5rem;
   padding-bottom: 1.5rem;
+  position: relative;
+  z-index: 100;
 }
 
 .logo {
