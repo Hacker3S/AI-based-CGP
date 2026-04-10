@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Sparkles, Route, Target, Trophy, ArrowRight, Activity, TrendingUp, MonitorPlay, Zap, Users, ShieldCheck, Mail, LogIn } from 'lucide-react';
 import { MockDB } from '../lib/db';
 import './Landing.css';
