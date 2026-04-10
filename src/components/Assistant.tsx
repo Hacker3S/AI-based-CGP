@@ -272,6 +272,7 @@ export default function Assistant() {
     // Fetch asynchronously but ensure 1 second mandatory visual delay matches requirements
     const startTime = Date.now();
     const responseText = await generateAIResponse(textToSend);
+    // eslint-disable-next-line react-hooks/purity
     const elapsed = Date.now() - startTime;
     const remainingDelay = Math.max(0, 1000 - elapsed);
 

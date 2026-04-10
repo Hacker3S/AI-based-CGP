@@ -36,8 +36,8 @@ export default function Auth() {
         await MockDB.registerUser(name, email, password, educationLevel);
       }
       navigate('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Authentication failed');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Authentication failed');
     } finally {
       setLoading(false);
     }

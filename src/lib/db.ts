@@ -12,22 +12,28 @@ export interface UserCareerState {
   userId: string;
   knownSkills: string[];
   aptitude: { logic: number; math: number; cs: number; problem_solving: number };
+  interests: string[];
+  strongSubjects: string[];
   xp: number;
   level: number;
   assessmentsCompleted: number;
   roadmapProgress: Record<string, boolean>; // mapping step ID to true
-  lastRecommendedCareers: any[];
+  lastRecommendedCareers: import('./recommendation').CareerRecommendation[];
   updatedAt: number;
 }
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
+interface StoredUser extends UserProfile {
+  pass: string;
+}
+
 export const MockDB = {
   // --- USERS ---
   async registerUser(name: string, email: string, pass: string, educationLevel: string): Promise<UserProfile> {
     await delay(600);
-    const users = JSON.parse(localStorage.getItem('db_users') || '[]');
-    if (users.find((u: any) => u.email === email)) {
+    const users: StoredUser[] = JSON.parse(localStorage.getItem('db_users') || '[]');
+    if (users.find((u) => u.email === email)) {
       throw new Error("User already exists");
     }
     
@@ -43,11 +49,13 @@ export const MockDB = {
     localStorage.setItem('db_users', JSON.stringify(users));
     
     // Initialize state
-    const states = JSON.parse(localStorage.getItem('db_career_state') || '[]');
+    const states: UserCareerState[] = JSON.parse(localStorage.getItem('db_career_state') || '[]');
     states.push({
       userId: newUser.id,
       knownSkills: [],
       aptitude: { logic: 0, math: 0, cs: 0, problem_solving: 0 },
+      interests: [],
+      strongSubjects: [],
       xp: 0,
       level: 1,
       assessmentsCompleted: 0,
@@ -63,12 +71,12 @@ export const MockDB = {
 
   async loginUser(email: string, pass: string): Promise<UserProfile> {
     await delay(500);
-    const users = JSON.parse(localStorage.getItem('db_users') || '[]');
-    const user = users.find((u: any) => u.email === email && u.pass === pass);
+    const users: StoredUser[] = JSON.parse(localStorage.getItem('db_users') || '[]');
+    const user = users.find((u) => u.email === email && u.pass === pass);
     if (!user) throw new Error("Invalid credentials");
     
     localStorage.setItem('current_user_id', user.id);
-    const { pass: _, ...profile } = user;
+    const { pass: _, ...profile } = user as StoredUser; // eslint-disable-line @typescript-eslint/no-unused-vars
     return profile as UserProfile;
   },
 
@@ -80,24 +88,24 @@ export const MockDB = {
   getCurrentUser(): UserProfile | null {
     const id = localStorage.getItem('current_user_id');
     if (!id) return null;
-    const users = JSON.parse(localStorage.getItem('db_users') || '[]');
-    const user = users.find((u: any) => u.id === id);
+    const users: StoredUser[] = JSON.parse(localStorage.getItem('db_users') || '[]');
+    const user = users.find((u) => u.id === id);
     if (!user) return null;
-    const { pass: _, ...profile } = user;
+    const { pass: _, ...profile } = user as StoredUser; // eslint-disable-line @typescript-eslint/no-unused-vars
     return profile;
   },
 
   // --- STATE ---
   async getUserState(userId: string): Promise<UserCareerState | null> {
     await delay(200);
-    const states = JSON.parse(localStorage.getItem('db_career_state') || '[]');
-    return states.find((s: any) => s.userId === userId) || null;
+    const states: UserCareerState[] = JSON.parse(localStorage.getItem('db_career_state') || '[]');
+    return states.find((s) => s.userId === userId) || null;
   },
 
   async updateUserState(userId: string, partial: Partial<UserCareerState>): Promise<void> {
     await delay(300);
-    const states = JSON.parse(localStorage.getItem('db_career_state') || '[]');
-    const idx = states.findIndex((s: any) => s.userId === userId);
+    const states: UserCareerState[] = JSON.parse(localStorage.getItem('db_career_state') || '[]');
+    const idx = states.findIndex((s) => s.userId === userId);
     if (idx !== -1) {
       states[idx] = { ...states[idx], ...partial, updatedAt: Date.now() };
       localStorage.setItem('db_career_state', JSON.stringify(states));

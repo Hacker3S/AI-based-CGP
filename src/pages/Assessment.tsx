@@ -67,6 +67,8 @@ export default function Assessment() {
       if (user && state) {
         await MockDB.updateUserState(user.id, {
           knownSkills: skills,
+          interests,
+          strongSubjects,
           assessmentsCompleted: state.assessmentsCompleted + 1
         });
         setStep(3); // Go directly to completion
@@ -119,6 +121,8 @@ export default function Assessment() {
 
     await MockDB.updateUserState(user.id, {
       knownSkills: skills,
+      interests,
+      strongSubjects,
       aptitude: aptitudeScores,
       xp: newXp,
       assessmentsCompleted: state.assessmentsCompleted + 1

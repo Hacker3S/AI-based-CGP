@@ -32,6 +32,8 @@ export default function Dashboard() {
 
       // We pass the user state as mapping to formData
       const pData = generateDashboardData({
+        interests: userState.interests,
+        strongSubjects: userState.strongSubjects,
         skills: userState.knownSkills,
         aptitudeScores: userState.aptitude
       });

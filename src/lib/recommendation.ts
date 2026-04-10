@@ -27,14 +27,21 @@ export interface DashboardData {
   roadmap: RoadmapStep[];
 }
 
-export function generateDashboardData(formData: any): DashboardData {
+export interface UserFormData {
+  interests: string[];
+  skills: string[];
+  strongSubjects: string[];
+  aptitudeScores: { logic: number; math: number; cs: number; problem_solving: number };
+}
+
+export function generateDashboardData(formData: UserFormData): DashboardData {
   const interests: string[] = formData?.interests || [];
   const skills: string[] = formData?.skills || [];
   const strongSubjects: string[] = formData?.strongSubjects || [];
   const aptitude = formData?.aptitudeScores || { logic: 0, math: 0, cs: 0, problem_solving: 0 };
 
   // Calculate scores for all careers
-  let careerMatches: { id: string, data: CareerContext, score: number }[] = [];
+  const careerMatches: { id: string, data: CareerContext, score: number }[] = [];
 
   for (const [id, data] of Object.entries(CAREER_DATASET)) {
     let score = 0;
